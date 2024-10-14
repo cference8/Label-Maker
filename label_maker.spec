@@ -30,10 +30,11 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
+    onefile=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['resources\\scribe-icon-white.ico'],
+    icon=['resources\\scribe-icon.ico'],
 )
