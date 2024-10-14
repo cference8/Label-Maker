@@ -485,6 +485,13 @@ history_label_frame.pack(pady=10, padx=10, fill="both", expand=True)
 instruction = ctk.CTkLabel(scrollable_frame, text="Select files to generate labels", font=("Helvetica", 16), text_color="white")
 instruction.pack(pady=10, padx=20, expand=False)
 
+# Add a new label for the file format below the instruction label
+file_format_title = ctk.CTkLabel(scrollable_frame, text="File format:", font=("Helvetica", 12), text_color="gray", anchor="w")
+file_format_title.pack(pady=1, padx=20, fill="x", anchor="w")
+file_format_label = ctk.CTkLabel(scrollable_frame, text="[Order_Name][Copy A-Z][List #][Letter/Envelope]-XXX-XXX.bin", 
+                                 font=("Helvetica", 12), text_color="gray")
+file_format_label.pack(pady=1, padx=20, expand=False)
+
 envelope_button = ctk.CTkButton(scrollable_frame, text="Select Envelope Chip Files", command=select_envelope_files)
 envelope_button.pack(pady=10, padx=20, fill="x", expand=True)
 
