@@ -85,9 +85,9 @@ def update_order_history(order_name, color):
     # Add the new entry
     history.append({"order_name": order_name, "color": color})
 
-    # Ensure only the last 10 unique entries are kept
-    if len(history) > 10:
-        history = history[-10:]
+    # Ensure only the last 20 unique entries are kept
+    if len(history) > 20:
+        history = history[-20:]
 
     save_order_history(history)
 
@@ -107,7 +107,6 @@ def display_order_history():
         order_colors[order_name] = color
 
         # Determine the appropriate text color based on background brightness
-        # We'll assume a simple method to determine if the background color is light or dark.
         def is_light_color(hex_color):
             hex_color = hex_color.lstrip("#")
             r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
@@ -121,8 +120,8 @@ def display_order_history():
         order_label.configure(fg_color=f"#{color}")  # Set the background color to the assigned color
         order_label.pack(pady=2, padx=5, anchor="w", fill="x")
 
-        # Bind right-click event to copy the color
-        order_label.bind("<Button-3>", lambda e, name=order_name: copy_order_color(name))
+        # Removed right-click event binding for copying color
+        # order_label.bind("<Button-3>", lambda e, name=order_name: copy_order_color(name))
 
 # Function to create styled text for each field in the DOCX file
 def create_styled_text(order_name, batch_chip, card_envelope):
@@ -267,37 +266,30 @@ def paste_order_color(order_name, color_label):
     else:
         messagebox.showerror("Error", "No copied color data available!")
 
+# Function to display the order color without right-click options
 def display_order_color(order_name, color_hex):
-    # Function to determine if the color is light or dark, to set the appropriate text color
     def is_light_color(hex_color):
         hex_color = hex_color.lstrip("#")
         r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
         brightness = (r * 299 + g * 587 + b * 114) / 1000  # Luminance formula
         return brightness > 186
 
-    # Determine text color based on background brightness
     text_color = "black" if is_light_color(color_hex) else "white"
 
-    # Remove the selected files labels temporarily
     envelope_label.pack_forget()
     letter_label.pack_forget()
 
-    # Add the color label with the appropriate background and text color
     color_label = ctk.CTkLabel(
         scrollable_frame,
         text=f"{order_name} assigned color",
-        fg_color=color_hex,  # Set the background color
-        text_color=text_color  # Set the dynamic text color
+        fg_color=color_hex,
+        text_color=text_color
     )
     color_label.pack(pady=5, padx=20)
 
-    # Bind a left-click event to the label to change the color
-    color_label.bind("<Button-1>", lambda e: change_color(order_name, color_label))
+    # Removed right-click event binding to show color menu
+    # color_label.bind("<Button-3>", lambda e: show_color_menu(e, order_name, color_label))
 
-    # Bind a right-click event to show the context menu with the correct arguments
-    color_label.bind("<Button-3>", lambda e: show_color_menu(e, order_name, color_label))
-
-    # Re-pack the selected files section
     letter_label.pack(pady=10, padx=20, fill="x", side="bottom")
     envelope_label.pack(pady=10, padx=20, fill="x", side="bottom")
 
@@ -417,19 +409,26 @@ def on_mousewheel_mac(event):
 def reset_data():
     global labels_data, displayed_envelope_files, displayed_letter_files, order_colors
 
+    # Clear all relevant data
     labels_data.clear()
     displayed_envelope_files.clear()
     displayed_letter_files.clear()
     order_colors.clear()
 
+    # Reset label texts
     envelope_label.configure(text="Selected Envelope Files:\n")
     letter_label.configure(text="Selected Letter Files:\n")
 
+    # Destroy any color assignment labels
     for widget in scrollable_frame.winfo_children():
         if isinstance(widget, ctk.CTkLabel) and "assigned color" in widget.cget("text"):
             widget.destroy()
 
+    # Hide the open button
+    open_button.pack_forget()
+
     messagebox.showinfo("Reset", "All label data and displayed files have been reset!")
+
 
 # GUI Setup
 root = ctk.CTk()
