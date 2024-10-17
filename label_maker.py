@@ -1,6 +1,6 @@
 import os
 import customtkinter as ctk
-from tkinter import filedialog, messagebox, colorchooser
+from tkinter import filedialog, messagebox, colorchooser, Menu
 import logging
 
 # Set up logging to log errors to a file
@@ -451,13 +451,20 @@ def reset_data():
     # Hide the open button
     open_button.pack_forget()
 
-    messagebox.showinfo("Reset", "All label data and displayed files have been reset!")
-
 # GUI Setup
 root = ctk.CTk()
 root.title("Label Maker")
 root.geometry("700x600")  # Increased the window width to accommodate both sides
 root.configure(bg="#3A3A3A")
+
+# Function to create and display a context menu with "Refresh" option
+def show_context_menu(event):
+    context_menu = Menu(root, tearoff=0)  # Create a context menu using tkinter's Menu
+    context_menu.add_command(label="Refresh", command=display_order_history)  # Add "Refresh" option
+    context_menu.tk_popup(event.x_root, event.y_root)  # Display the menu at the cursor's position
+
+# Bind right-click event to the entire root window to show the context menu
+root.bind("<Button-3>", show_context_menu)
 
 icon_path = resource_path('resources/scribe-icon.ico')
 root.iconbitmap(icon_path)
