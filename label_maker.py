@@ -87,6 +87,9 @@ def display_order_history():
 
     history = load_order_history()
 
+    # Reverse the history to show newest entries first
+    history.reverse()
+
     for entry in history:
         order_name = entry['order_name']
         color = entry['color']
@@ -175,6 +178,9 @@ def generate_labels_data(files, chip_type):
             file_name = os.path.basename(file_path)
             base_name = os.path.splitext(file_name)[0]  # Remove the extension (e.g., ".bin")
             
+            # Ignore hyphens in base_name
+            base_name = base_name.replace("-", " ")
+
             # Ensure the files match the correct chip_type (Envelopes or Letters)
             if chip_type == "Envelopes" and "Letters" in base_name:
                 invalid_files.append(file_name)  # Track invalid files
