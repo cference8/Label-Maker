@@ -1,18 +1,7 @@
 import os
-import platform
-import tkinter as tk
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, colorchooser
-from PIL import Image
-from docxtpl import DocxTemplate, RichText
-from collections import defaultdict
-from docx import Document
-from docx.shared import Pt
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
-import sys
 import logging
-import json
-from datetime import datetime
 
 # Set up logging to log errors to a file
 logging.basicConfig(filename='file_processing_errors.log',
@@ -21,6 +10,7 @@ logging.basicConfig(filename='file_processing_errors.log',
 
 # Function to locate resource files, works for both PyInstaller executable and dev environment
 def resource_path(relative_path):
+    import sys
     try:
         # PyInstaller creates a temporary folder and stores resources there
         base_path = sys._MEIPASS
@@ -34,10 +24,10 @@ def get_history_file_path():
     """ Get the writable path for the history file in a fixed directory on your computer. """
     # Define the fixed path where you want the history file to be saved
     base_path = r"G:\Shared drives\Scribe Workspace\Scribe Master Folder\Scribe Label Maker"
-    
+        
     # Ensure the directory exists (creates it if it doesn't exist)
     os.makedirs(base_path, exist_ok=True)
-
+    
     # Construct the full path for the history file
     history_file_path = os.path.join(base_path, "order_history.json")
     
@@ -52,17 +42,14 @@ labels_data = []
 displayed_envelope_files = set()
 displayed_letter_files = set()
 order_colors = {}
-copied_order_data = None
 
 # Paths for docx files
 blank_template_path = resource_path('resources/Label_Template_BLANK.docx')
 generated_template_path = resource_path('resources/GENERATED_Label_Template.docx')
 
-# File path for persisting the last 10 orders and their colors
-history_file_path = resource_path("order_history.json")
-
 # Function to load order history from JSON file
 def load_order_history():
+    import json
     history_file_path = get_history_file_path()
     if os.path.exists(history_file_path):
         with open(history_file_path, 'r') as file:
@@ -71,6 +58,7 @@ def load_order_history():
 
 # Function to save order history to JSON file
 def save_order_history(history):
+    import json
     history_file_path = get_history_file_path()
     with open(history_file_path, 'w') as file:
         json.dump(history, file)
@@ -98,7 +86,7 @@ def display_order_history():
         widget.destroy()
 
     history = load_order_history()
-    
+
     for entry in history:
         order_name = entry['order_name']
         color = entry['color']
@@ -109,22 +97,38 @@ def display_order_history():
         # Determine the appropriate text color based on background brightness
         def is_light_color(hex_color):
             hex_color = hex_color.lstrip("#")
-            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-            brightness = (r*299 + g*587 + b*114) / 1000  # Luminance formula
+            r, g, b = (
+                int(hex_color[0:2], 16),
+                int(hex_color[2:4], 16),
+                int(hex_color[4:6], 16),
+            )
+            brightness = (r * 299 + g * 587 + b * 114) / 1000  # Luminance formula
             return brightness > 186
 
         text_color = "black" if is_light_color(color) else "white"
 
-        # Create a label for each history entry with the background color set to the order's color
-        order_label = ctk.CTkLabel(history_label_frame, text=order_name, font=("Helvetica", 12), text_color=text_color)
+        # Create a label for each history entry with the background color set to the assigned color
+        order_label = ctk.CTkLabel(
+            history_label_frame,
+            text=order_name,
+            font=("Helvetica", 12),
+            text_color=text_color,
+        )
         order_label.configure(fg_color=f"#{color}")  # Set the background color to the assigned color
         order_label.pack(pady=2, padx=5, anchor="w", fill="x")
 
-        # Removed right-click event binding for copying color
-        # order_label.bind("<Button-3>", lambda e, name=order_name: copy_order_color(name))
+        # Adjust bindtags to include history_label_frame
+        order_label.bindtags((str(order_label), str(history_label_frame), "all"))
+
+        # Bind click event to change color
+        order_label.bind(
+            "<Button-1>",
+            lambda event, name=order_name, label=order_label: change_order_history_color(event, name, label),
+        )
 
 # Function to create styled text for each field in the DOCX file
 def create_styled_text(order_name, batch_chip, card_envelope):
+    from docxtpl import RichText
     font_color = order_colors.get(order_name, "000000")
     styled_order_name = RichText(order_name, color=font_color, size=32)
     styled_batch_chip = RichText(batch_chip, color=font_color, size=32)
@@ -154,6 +158,8 @@ def select_letter_files():
 
 # Function to generate the labels data based on selected files
 def generate_labels_data(files, chip_type):
+    import logging
+    from collections import defaultdict
     global labels_data, displayed_envelope_files, displayed_letter_files, order_colors
     valid_files = []  # To store valid files for display in the labels
     order_type_count = defaultdict(list)  # To group by order_name and card_envelope type
@@ -234,7 +240,6 @@ def generate_labels_data(files, chip_type):
             current_text = letter_label.cget("text")
             letter_label.configure(text=current_text + file_names + "\n")
 
-
 # Function to prompt user for a color for each unique order_name
 def assign_color_for_order(order_name):
     color = colorchooser.askcolor(title=f"Choose color for {order_name}")
@@ -244,27 +249,10 @@ def assign_color_for_order(order_name):
 
 # Function to change the color when the label is clicked
 def change_color(order_name, color_label):
-    new_color = colorchooser.askcolor(title=f"Choose a new color for {order_name}")
-    if new_color[1]:
-        order_colors[order_name] = new_color[1][1:]
-        color_label.configure(fg_color=new_color[1])
-
-# Function to copy the selected order's color
-def copy_order_color(order_name):
-    global copied_order_data
-    copied_order_data = (order_name, order_colors[order_name])
-    messagebox.showinfo("Copied", f"Copied {order_name} with color {order_colors[order_name]}")
-
-# Function to paste the copied color to another order
-def paste_order_color(order_name, color_label):
-    global copied_order_data
-    if copied_order_data:
-        copied_order_name, copied_color = copied_order_data
-        order_colors[order_name] = copied_color
-        color_label.configure(fg_color="#" + copied_color)
-        messagebox.showinfo("Pasted", f"Pasted color from {copied_order_name} to {order_name}")
-    else:
-        messagebox.showerror("Error", "No copied color data available!")
+    color = colorchooser.askcolor(title=f"Choose a new color for {order_name}")
+    if color[1]:
+        order_colors[order_name] = color[1][1:]
+        color_label.configure(fg_color=color[1])
 
 # Function to display the order color without right-click options
 def display_order_color(order_name, color_hex):
@@ -287,23 +275,28 @@ def display_order_color(order_name, color_hex):
     )
     color_label.pack(pady=5, padx=20)
 
-    # Removed right-click event binding to show color menu
-    # color_label.bind("<Button-3>", lambda e: show_color_menu(e, order_name, color_label))
-
     letter_label.pack(pady=10, padx=20, fill="x", side="bottom")
     envelope_label.pack(pady=10, padx=20, fill="x", side="bottom")
 
+def change_order_history_color(event, order_name, order_label):
+    color = colorchooser.askcolor(title=f"Choose new color for {order_name}")
+    if color[1]:
+        new_color = color[1][1:]  # Remove the '#' from the color code
+        order_colors[order_name] = new_color
+        order_label.configure(fg_color=color[1])
 
-# Function to show a context menu for copying/pasting colors
-def show_color_menu(event, order_name, color_label):
-    # Create a context menu using tkinter's Menu widget
-    color_menu = tk.Menu(root, tearoff=0)
-    color_menu.add_command(label="Copy", command=lambda: copy_order_color(order_name))
-    color_menu.add_command(label="Paste", command=lambda: paste_order_color(order_name, color_label))
-    
-    # Display the context menu at the event's x and y coordinates
-    color_menu.tk_popup(event.x_root, event.y_root)
+        # Update text color based on brightness
+        def is_light_color(hex_color):
+            hex_color = hex_color.lstrip("#")
+            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+            brightness = (r * 299 + g * 587 + b * 114) / 1000
+            return brightness > 186
 
+        text_color = "black" if is_light_color(new_color) else "white"
+        order_label.configure(text_color=text_color)
+
+        # Update the order history
+        update_order_history(order_name, new_color)
 
 # Function to create labels in the DOCX file with font size 16 and bold formatting (excluding curly braces)
 def create_labels(doc, start_number, num_labels):
@@ -314,19 +307,21 @@ def create_labels(doc, start_number, num_labels):
 
 # Function to add paragraphs and apply bold formatting
 def add_label_paragraph(doc, text):
+    from docx.shared import Pt
+    from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
     paragraph = doc.add_paragraph()
     is_bold = True
     current_run = ""
     
     for idx, char in enumerate(text):
-        if char == '{' and text[idx+1] == '{':
+        if char == '{' and idx+1 < len(text) and text[idx+1] == '{':
             if current_run:
                 run = paragraph.add_run(current_run)
                 run.bold = is_bold
                 run.font.size = Pt(16)
             current_run = char
             is_bold = False
-        elif char == '}' and text[idx-1] == '}':
+        elif char == '}' and idx-1 >= 0 and text[idx-1] == '}':
             current_run += char
             run = paragraph.add_run(current_run)
             run.bold = is_bold
@@ -351,6 +346,9 @@ def create_docx():
         return
 
     try:
+        from docx import Document
+        from docxtpl import DocxTemplate, RichText
+        import logging
         doc = Document(blank_template_path)
         if len(doc.paragraphs) > 0:
             doc.paragraphs[0]._element.getparent().remove(doc.paragraphs[0]._element)
@@ -373,8 +371,8 @@ def create_docx():
         if save_path:
             template.save(save_path)
             messagebox.showinfo("Success", f"Labels saved to {save_path}")
-            open_button.pack(pady=10, padx=20)
             open_button.configure(command=lambda: open_docx_file(save_path))
+            open_button.pack(pady=10, padx=20, before=reset_button)
         else:
             messagebox.showerror("Error", "Save path not specified or operation cancelled.")
 
@@ -386,6 +384,8 @@ def create_docx():
 
 # Function to open the DOCX file
 def open_docx_file(file_path):
+    import platform
+    import logging
     try:
         if platform.system() == "Windows":
             os.startfile(file_path)
@@ -429,7 +429,6 @@ def reset_data():
 
     messagebox.showinfo("Reset", "All label data and displayed files have been reset!")
 
-
 # GUI Setup
 root = ctk.CTk()
 root.title("Label Maker")
@@ -440,6 +439,8 @@ icon_path = resource_path('resources/scribe-icon.ico')
 root.iconbitmap(icon_path)
 
 logo_path = resource_path('resources/scribe-logo-final.png')
+
+from PIL import Image
 logo_image = Image.open(logo_path)
 logo_image = logo_image.resize((258, 100), Image.Resampling.LANCZOS)
 
@@ -486,10 +487,9 @@ instruction = ctk.CTkLabel(scrollable_frame, text="Select files to generate labe
 instruction.pack(pady=1, padx=20, expand=False)
 
 # Add a new label for the file format below the instruction label
-file_format_label = ctk.CTkLabel(scrollable_frame, text="[Order_Name][Copy A-Z][List #][Letters/Envelopes]-XXX-XXX.bin", 
-                                 font=("Helvetica", 12), text_color="gray")
-file_format_label.pack(pady=1, padx=20)
-file_format_example = ctk.CTkLabel(scrollable_frame, text="Examples: Chris LaVigne T1 Copy A Envelopes-1-167.bin\n Chris LaVigne T1 List 1 Letters-1-167.bin\nChris LaVigne T1 Envelopes-1-167.bin", 
+file_format_example = ctk.CTkLabel(scrollable_frame, text="Examples: Chris LaVigne T1 Copy A Envelopes-1-167.bin\n" + 
+                                                                "Chris LaVigne T1 List 1 Letters-1-167.bin\n" +
+                                                                    "Chris LaVigne T1 Envelopes-1-167.bin", 
                                  font=("Helvetica", 12), text_color="gray")
 file_format_example.pack(pady=1, padx=20, expand=False)
 
