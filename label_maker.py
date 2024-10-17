@@ -79,7 +79,7 @@ def update_order_history(order_name, color):
 
     save_order_history(history)
 
-# Function to display the last 10 order_name and color combinations in the GUI
+# Function to display the last 20 order_name and color combinations in the GUI
 def display_order_history():
     # Clear previous displayed history
     for widget in history_label_frame.winfo_children():
