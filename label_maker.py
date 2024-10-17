@@ -168,6 +168,9 @@ def generate_labels_data(files, chip_type):
     order_type_count = defaultdict(list)  # To group by order_name and card_envelope type
     invalid_files = []  # List to track invalid files
 
+    # Convert labels_data into a set of existing (order_name, card_envelope) pairs to check for duplicates
+    existing_labels = {(entry['order_name'], entry['card_envelope']) for entry in labels_data}
+
     for file_path in files:
         try:
             # Validate if file exists and is accessible
@@ -179,7 +182,7 @@ def generate_labels_data(files, chip_type):
             base_name = os.path.splitext(file_name)[0]  # Remove the extension (e.g., ".bin")
             
             # Ignore hyphens in base_name
-            base_name = base_name.replace("-", " ")
+            base_name = base_name.replace("-", "")
 
             # Ensure the files match the correct chip_type (Envelopes or Letters)
             if chip_type == "Envelopes" and "Letters" in base_name:
@@ -189,9 +192,6 @@ def generate_labels_data(files, chip_type):
                 invalid_files.append(file_name)  # Track invalid files
                 continue  # Skip this file as it's not valid for Letters
 
-            # Splitting the file name into parts
-            parts = base_name.split()
-
             # Extract the order_name and card_envelope type
             if "Envelopes" in base_name:
                 order_name = base_name.split("Envelopes")[0].strip()  # Get everything before "Envelopes"
@@ -199,6 +199,10 @@ def generate_labels_data(files, chip_type):
             elif "Letters" in base_name:
                 order_name = base_name.split("Letters")[0].strip()  # Get everything before "Letters"
                 card_envelope = "Card"
+
+            # Check if this label has already been generated
+            if (order_name, card_envelope) in existing_labels:
+                continue  # Skip if this order_name and card_envelope already exist
 
             # The rest of the logic remains unchanged
             order_type_count[(order_name, card_envelope)].append(file_name)
@@ -221,20 +225,21 @@ def generate_labels_data(files, chip_type):
         for i, file_name in enumerate(file_list):
             batch_chip = f"{i + 1} of {len(file_list)}"
 
-            # Append valid files to labels_data
-            labels_data.append({
-                "order_name": order_name,
-                "batch_chip": batch_chip,
-                "card_envelope": card_envelope
-            })
+            # Append valid files to labels_data if not already present
+            if (order_name, card_envelope) not in existing_labels:
+                labels_data.append({
+                    "order_name": order_name,
+                    "batch_chip": batch_chip,
+                    "card_envelope": card_envelope
+                })
 
-            # Add valid files to the appropriate set for preventing duplicates
-            if chip_type == "Envelopes" and file_name not in displayed_envelope_files:
-                valid_files.append(file_name)
-                displayed_envelope_files.add(file_name)
-            elif chip_type == "Letters" and file_name not in displayed_letter_files:
-                valid_files.append(file_name)
-                displayed_letter_files.add(file_name)
+                # Add valid files to the appropriate set for preventing duplicates
+                if chip_type == "Envelopes" and file_name not in displayed_envelope_files:
+                    valid_files.append(file_name)
+                    displayed_envelope_files.add(file_name)
+                elif chip_type == "Letters" and file_name not in displayed_letter_files:
+                    valid_files.append(file_name)
+                    displayed_letter_files.add(file_name)
 
     # Display only valid and non-duplicate files in the appropriate label
     if valid_files:
