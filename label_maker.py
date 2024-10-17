@@ -355,6 +355,25 @@ def create_docx():
         from docx import Document
         from docxtpl import DocxTemplate, RichText
         import logging
+        from tkinter import simpledialog
+
+        # Default save path
+        save_directory = r"G:\Shared drives\Scribe Workspace\Scribe Master Folder\Batch Labels"
+        
+        # Ensure the directory exists
+        os.makedirs(save_directory, exist_ok=True)
+
+        # Prompt the user for a file name
+        file_name = simpledialog.askstring("Input", "Enter the file name for the DOCX:", parent=root)
+        
+        if not file_name:
+            messagebox.showerror("Error", "File name not specified.")
+            return
+
+        # Construct the full save path
+        save_path = os.path.join(save_directory, f"{file_name}.docx")
+
+        # Generate the DOCX document
         doc = Document(blank_template_path)
         if len(doc.paragraphs) > 0:
             doc.paragraphs[0]._element.getparent().remove(doc.paragraphs[0]._element)
@@ -373,14 +392,13 @@ def create_docx():
             update_order_history(label['order_name'], order_colors[label['order_name']])
 
         template.render(context)
-        save_path = filedialog.asksaveasfilename(defaultextension=".docx", filetypes=[("Word Document", "*.docx")])
-        if save_path:
-            template.save(save_path)
-            messagebox.showinfo("Success", f"Labels saved to {save_path}")
-            open_button.configure(command=lambda: open_docx_file(save_path))
-            open_button.pack(pady=10, padx=20, before=reset_button)
-        else:
-            messagebox.showerror("Error", "Save path not specified or operation cancelled.")
+
+        # Save the document to the specified path
+        template.save(save_path)
+        
+        messagebox.showinfo("Success", f"Labels saved to {save_path}")
+        open_button.configure(command=lambda: open_docx_file(save_path))
+        open_button.pack(pady=10, padx=20, before=reset_button)
 
         display_order_history()
 
