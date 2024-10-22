@@ -10,14 +10,17 @@ logging.basicConfig(filename='file_processing_errors.log',
 
 # Function to locate resource files, works for both PyInstaller executable and dev environment
 def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and PyInstaller """
     import sys
     try:
-        # PyInstaller creates a temporary folder and stores resources there
+        # PyInstaller creates a temporary folder and stores the path in sys._MEIPASS
         base_path = sys._MEIPASS
     except AttributeError:
-        # If not running in PyInstaller, use the regular path
         base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+    
+    # Ensure backslashes for Windows paths
+    return os.path.join(base_path, relative_path).replace('\\', '/')
+
 
 # Ensure the history file is stored in a user-writable location (not inside the executable)
 def get_history_file_path():
