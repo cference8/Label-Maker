@@ -265,7 +265,7 @@ def change_color(order_name, color_label):
         order_colors[order_name] = color[1][1:]
         color_label.configure(fg_color=color[1])
 
-# Function to display the order color without right-click options
+# Function to display the order color
 def display_order_color(order_name, color_hex):
     def is_light_color(hex_color):
         hex_color = hex_color.lstrip("#")
@@ -278,16 +278,40 @@ def display_order_color(order_name, color_hex):
     envelope_label.pack_forget()
     letter_label.pack_forget()
 
+    # Create the color label
     color_label = ctk.CTkLabel(
         scrollable_frame,
         text=f"{order_name} assigned color",
         fg_color=color_hex,
         text_color=text_color
     )
+    
+    # Bind the left-click event to change the label color
+    color_label.bind("<Button-1>", lambda event: change_label_color_on_click(event, color_label))
+
+    # Pack the label
     color_label.pack(pady=5, padx=20)
 
     letter_label.pack(pady=10, padx=20, fill="x", side="bottom")
     envelope_label.pack(pady=10, padx=20, fill="x", side="bottom")
+
+def change_label_color_on_click(event, label):
+    # Prompt the user to choose a new color
+    color = colorchooser.askcolor(title="Choose a new color for the label")
+    if color[1]:
+        # Update the label's background color (fg_color) with the selected color
+        label.configure(fg_color=color[1])
+
+        # Adjust text color based on the brightness of the selected color
+        def is_light_color(hex_color):
+            hex_color = hex_color.lstrip("#")
+            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+            brightness = (r * 299 + g * 587 + b * 114) / 1000
+            return brightness > 186
+
+        # Set text color to black if light color, white if dark color
+        text_color = "black" if is_light_color(color[1]) else "white"
+        label.configure(text_color=text_color)
 
 def change_order_history_color(event, order_name, order_label):
     color = colorchooser.askcolor(title=f"Choose new color for {order_name}")
@@ -523,8 +547,8 @@ instruction = ctk.CTkLabel(scrollable_frame, text="Select files to generate labe
 instruction.pack(pady=1, padx=20, expand=False)
 
 # Add a new label for the file format below the instruction label
-file_format_example = ctk.CTkLabel(scrollable_frame, text="Examples: Chris LaVigne T1 Copy A Envelopes-1-167.bin\n" + 
-                                                                "Chris LaVigne T1 List 1 Letters-1-167.bin\n" +
+file_format_example = ctk.CTkLabel(scrollable_frame, text="Examples: Chris LaVigne T1 Copy 1 Envelopes-1-167.bin\n" + 
+                                                                "Chris LaVigne T1 Copy 2 Letters-1-167.bin\n" +
                                                                     "Chris LaVigne T1 Envelopes-1-167.bin", 
                                  font=("Helvetica", 12), text_color="gray")
 file_format_example.pack(pady=1, padx=20, expand=False)
