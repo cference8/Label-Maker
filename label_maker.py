@@ -308,13 +308,26 @@ def change_label_color_on_click(event, label):
         # Adjust text color based on the brightness of the selected color
         def is_light_color(hex_color):
             hex_color = hex_color.lstrip("#")
-            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-            brightness = (r * 299 + g * 587 + b * 114) / 1000
-            return brightness > 186
+            if len(hex_color) == 6:  # Ensure we have a valid 6-digit hex color
+                r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+                brightness = (r * 299 + g * 587 + b * 114) / 1000
+                return brightness > 186
+            else:
+                return False  # Default to dark if the color is invalid or not as expected
 
         # Set text color to black if light color, white if dark color
         text_color = "black" if is_light_color(color[1]) else "white"
         label.configure(text_color=text_color)
+
+        # Update the order_colors dictionary with the new color (remove '#')
+        order_name = label.cget("text").split(" assigned color")[0]
+        order_colors[order_name] = color[1][1:]
+
+        # Update the order history with the new color
+        update_order_history(order_name, order_colors[order_name])
+
+        # Refresh the display order history to reflect the color change
+        display_order_history()
 
 def change_order_history_color(event, order_name, order_label):
     color = colorchooser.askcolor(title=f"Choose new color for {order_name}")
