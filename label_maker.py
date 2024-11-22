@@ -35,7 +35,7 @@ def get_history_file_path():
     os.makedirs(base_path, exist_ok=True)
     
     # Construct the full path for the history file
-    history_file_path = os.path.join(base_path, "test_order_history.json")
+    history_file_path = os.path.join(base_path, "order_history.json")
     
     return history_file_path
 
