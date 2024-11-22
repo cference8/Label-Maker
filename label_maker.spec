@@ -5,7 +5,7 @@ a = Analysis(
     ['label_maker.py'],
     pathex=[],
     binaries=[],
-    datas=[('resources/GENERATED_Label_Template.docx', 'resources'), ('resources/scribe-icon.ico', 'resources'), ('resources/scribe-logo-final.png', 'resources'), ('resources/Label_Template_BLANK.docx', 'resources')],
+    datas=[('resources/Arial_Bold.ttf', 'resources'), ('resources/scribe-icon.ico', 'resources'), ('resources/scribe-logo-final.png', 'resources')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

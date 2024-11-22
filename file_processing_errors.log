@@ -1,0 +1,6 @@
+2024-11-20 18:43:22,256 - ERROR - Failed to create the DOCX file: name 'docx' is not defined
+2024-11-20 19:32:25,072 - ERROR - Failed to create the DOCX file: 'CT_PictureNonVisual' object has no attribute 'cNvGraphicFramePr'
+2024-11-20 19:35:38,900 - ERROR - Failed to create the DOCX file: 'CT_PictureNonVisual' object has no attribute 'cNvGraphicFramePr'
+2024-11-20 19:37:23,238 - ERROR - Failed to create the DOCX file: "no style with name 'Table Grid'"
+2024-11-20 19:49:31,865 - ERROR - Failed to create the DOCX file: name 'create_labels' is not defined
+2024-11-20 19:53:09,198 - ERROR - Failed to create the DOCX file: 'lxml.etree._Element' object has no attribute 'align' and no __dict__ for setting new attributes
