@@ -1,6 +1,6 @@
 import os
 import customtkinter as ctk
-from tkinter import filedialog, messagebox, colorchooser, Menu
+from tkinter import TclError, filedialog, messagebox, colorchooser, Menu
 import logging
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
@@ -35,7 +35,7 @@ def get_history_file_path():
     os.makedirs(base_path, exist_ok=True)
     
     # Construct the full path for the history file
-    history_file_path = os.path.join(base_path, "order_history.json")
+    history_file_path = os.path.join(base_path, "test_order_history.json")
     
     return history_file_path
 
@@ -152,6 +152,7 @@ def select_letter_files():
 def generate_labels_data(files, chip_type):
     import logging
     from collections import defaultdict
+    import re
     global labels_data, displayed_envelope_files, displayed_letter_files, order_colors
     valid_files = []  # To store valid files for display in the labels
     order_type_count = defaultdict(list)  # To group by order_name and card_envelope type
@@ -169,32 +170,74 @@ def generate_labels_data(files, chip_type):
 
             file_name = os.path.basename(file_path)
             base_name = os.path.splitext(file_name)[0]  # Remove the extension (e.g., ".bin")
-            
-            # Ignore hyphens in base_name
-            base_name = base_name.replace("-", "")
 
-            # Ensure the files match the correct chip_type (Envelopes or Letters)
-            if chip_type == "Envelopes" and "Letters" in base_name:
-                invalid_files.append(file_name)  # Track invalid files
-                continue  # Skip this file as it's not valid for Envelopes
-            elif chip_type == "Letters" and "Envelopes" in base_name:
-                invalid_files.append(file_name)  # Track invalid files
-                continue  # Skip this file as it's not valid for Letters
-
-            # Extract the order_name and card_envelope type
+            # Check if the file name contains "Envelopes" or "Letters"
             if "Envelopes" in base_name:
-                order_name = base_name.split("Envelopes")[0].strip()  # Get everything before "Envelopes"
                 card_envelope = "Envelope"
+                parts = base_name.split("Envelopes")
+                order_name = parts[0].strip()
+                rest = parts[1].strip()
             elif "Letters" in base_name:
-                order_name = base_name.split("Letters")[0].strip()  # Get everything before "Letters"
                 card_envelope = "Card"
+                parts = base_name.split("Letters")
+                order_name = parts[0].strip()
+                rest = parts[1].strip()
+            else:
+                # Prompt the user to select the type
+                selected_type = ask_envelope_or_letter(file_name)
+                if not selected_type:
+                    # User cancelled or closed the dialog
+                    continue
+                if selected_type == "Envelopes":
+                    card_envelope = "Envelope"
+                elif selected_type == "Letters":
+                    card_envelope = "Card"
+                else:
+                    # Invalid selection
+                    continue
+                # Since we don't have "Envelopes" or "Letters" in the base_name,
+                # we'll assume the entire base_name is the order_name
+                order_name = base_name.strip()
+                rest = ''
+
+            # Now try to extract the range from rest or base_name
+            if rest:
+                range_match_string = rest
+            else:
+                range_match_string = base_name
+
+            # Extract the range using regex
+            match = re.search(r'(\d+)-(\d+)', range_match_string)
+            if match:
+                start_num = int(match.group(1))
+                end_num = int(match.group(2))
+                num_records = end_num - start_num + 1
+                # Remove the range from order_name if it was in order_name
+                if not rest:
+                    order_name = order_name[:match.start()].strip()
+            else:
+                num_records = None
 
             # Check if this label has already been generated
             if (order_name, card_envelope) in existing_labels:
                 continue  # Skip if this order_name and card_envelope already exist
 
-            # The rest of the logic remains unchanged
-            order_type_count[(order_name, card_envelope)].append(file_name)
+            # Append valid files to labels_data
+            label_entry = {
+                "order_name": order_name,
+                "batch_chip": "1 of 1",  # Default batch_chip for single files
+                "card_envelope": card_envelope,
+                "num_records": num_records  # Store the number of records
+            }
+            labels_data.append(label_entry)
+
+            # Add valid files to the appropriate set for preventing duplicates
+            if card_envelope == "Envelope" and file_name not in displayed_envelope_files:
+                valid_files.append(file_name)
+                displayed_envelope_files.add(file_name)
+            elif card_envelope == "Card" and file_name not in displayed_letter_files:
+                valid_files.append(file_name)
+                displayed_letter_files.add(file_name)
 
             # Prompt for color if order_name doesn't already have one
             if order_name not in order_colors:
@@ -209,26 +252,16 @@ def generate_labels_data(files, chip_type):
         invalid_file_list = "\n".join(invalid_files)
         messagebox.showerror("Invalid Files", f"The following files were invalid for {chip_type}:\n{invalid_file_list}")
 
-    # Assign batch numbers for each unique order_name and type
-    for (order_name, card_envelope), file_list in order_type_count.items():
-        for i, file_name in enumerate(file_list):
-            batch_chip = f"{i + 1} of {len(file_list)}"
+    # Update the labels_data entries to assign batch numbers if there are multiple files per order
+    order_type_files = defaultdict(list)
+    for label in labels_data:
+        key = (label['order_name'], label['card_envelope'])
+        order_type_files[key].append(label)
 
-            # Append valid files to labels_data if not already present
-            if (order_name, card_envelope) not in existing_labels:
-                labels_data.append({
-                    "order_name": order_name,
-                    "batch_chip": batch_chip,
-                    "card_envelope": card_envelope
-                })
-
-                # Add valid files to the appropriate set for preventing duplicates
-                if chip_type == "Envelopes" and file_name not in displayed_envelope_files:
-                    valid_files.append(file_name)
-                    displayed_envelope_files.add(file_name)
-                elif chip_type == "Letters" and file_name not in displayed_letter_files:
-                    valid_files.append(file_name)
-                    displayed_letter_files.add(file_name)
+    for (order_name, card_envelope), labels in order_type_files.items():
+        total_batches = len(labels)
+        for i, label in enumerate(labels):
+            label['batch_chip'] = f"{i + 1} of {total_batches}"
 
     # Display only valid and non-duplicate files in the appropriate label
     if valid_files:
@@ -239,6 +272,53 @@ def generate_labels_data(files, chip_type):
         elif chip_type == "Letters":
             current_text = letter_label.cget("text")
             letter_label.configure(text=current_text + file_names + "\n")
+
+def ask_envelope_or_letter(file_name):
+    import customtkinter as ctk
+    result = [None]  # Use a list to hold the result due to scope
+
+    dialog = ctk.CTkToplevel()
+    dialog.title("File Type")
+    dialog.geometry("400x200")
+    dialog.attributes('-topmost', True)
+    dialog.grab_set()
+
+    label = ctk.CTkLabel(
+        dialog,
+        text=f"File '{file_name}' does not contain 'Envelopes' or 'Letters'.\nPlease select the type:",
+        font=("Helvetica", 14),
+        wraplength=380,
+        justify="left"
+    )
+    label.pack(pady=20, padx=10)
+
+    def on_select(choice):
+        result[0] = choice
+        dialog.grab_release()
+        dialog.destroy()
+
+    button_frame = ctk.CTkFrame(dialog)
+    button_frame.pack(pady=10)
+
+    envelope_button = ctk.CTkButton(
+        button_frame,
+        text="Envelopes",
+        command=lambda: on_select("Envelopes"),
+        width=120
+    )
+    envelope_button.pack(side="left", padx=10)
+
+    letters_button = ctk.CTkButton(
+        button_frame,
+        text="Letters",
+        command=lambda: on_select("Letters"),
+        width=120
+    )
+    letters_button.pack(side="left", padx=10)
+
+    dialog.wait_window()
+
+    return result[0]
 
 # Function to prompt user for a color for each unique order_name
 def assign_color_for_order(order_name):
@@ -339,13 +419,10 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
     """
     Generates a multi-page PDF of labels with a 2x6 layout and QR codes for standard letter-sized paper (8.5x11 inches).
 
-    :param labels_data: List of dictionaries with label data (order_name, batch_chip, card_envelope, color).
+    :param labels_data: List of dictionaries with label data (order_name, batch_chip, card_envelope, color, num_records).
     :param qr_codes: Dictionary mapping order_name to its QR code URL.
     :param output_pdf: Output file name for the generated PDF.
     """
-    from PIL import Image, ImageDraw, ImageFont
-    import qrcode
-    import os
 
     # Define page dimensions for 8.5 x 11 inches at 300 DPI
     PAGE_WIDTH, PAGE_HEIGHT = 2550, 3300  # 8.5 x 11 inches at 300 DPI
@@ -361,6 +438,7 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
 
     font_large = ImageFont.truetype(font_path, 70)
     font_medium = ImageFont.truetype(font_path, 50)
+    font_small = ImageFont.truetype(font_path, 40)  # Added a smaller font size for num_records
 
     # Prepare to store pages
     pages = []
@@ -395,12 +473,19 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
 
             # Draw label box
             draw.rectangle([x_start, y_start, x_end, y_end], outline="black", width=3)
+    
+            # Calculate the position of the vertical line
+            x_line = x_start + (LABEL_WIDTH - 500) // 2  # Line in the middle of the label (adjusted with - 500)
+
+            # Draw the vertical line
+            draw.line([(x_line, y_start + 200), (x_line, y_end - 100)], fill="black", width=5)
 
             # Add label text
             label = labels_data[label_index]
             order_name = label["order_name"]
             batch_chip = label["batch_chip"]
             card_envelope = label["card_envelope"]
+            num_records = label.get('num_records', None)
             text_color = label.get('color', "black")
 
             # Ensure text_color is in a format PIL can use
@@ -411,11 +496,18 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
 
             # Draw the text onto the label
             draw.text((x_start + 20, y_start + 20), f"Order Name & Number:", fill='black', font=font_medium)
-            draw.text((x_start + 20, y_start + 100), order_name, fill=text_color, font=font_large)
-            draw.text((x_start + 20, y_start + 200), "Batch / Chip Number:", fill='black', font=font_medium)
-            draw.text((x_start + 20, y_start + 265), batch_chip, fill=text_color, font=font_large)
+            draw.text((x_start + 30, y_start + 100), order_name, fill=text_color, font=font_large)
+            draw.text((x_start + 20, y_start + 200), "Chip #:", fill='black', font=font_medium)
+            draw.text((x_start + 30, y_start + 265), batch_chip, fill=text_color, font=font_large)
+            if num_records is not None:
+                draw.text((x_start + 400, y_start + 200), f"# of Records:", fill='black', font=font_medium)
+                draw.text((x_start + 480, y_start + 265), str(num_records), fill=text_color, font=font_medium)
+                # Adjust positions as needed to fit all text
+            else:
+                # If num_records is not available, adjust the positions of "Type:"
+                y_type = y_start + 320
             draw.text((x_start + 20, y_start + 360), "Type:", fill='black', font=font_medium)
-            draw.text((x_start + 180, y_start + 350), card_envelope, fill=text_color, font=font_large)
+            draw.text((x_start + 200, y_start + 350), card_envelope, fill=text_color, font=font_large)
 
             # Add QR code if it exists for the order
             if order_name in qr_codes:
@@ -425,9 +517,9 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
 
                 # Generate QR code image
                 qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
-                qr_size = 200  # QR code size
+                qr_size = 250  # QR code size
                 qr_img = qr_img.resize((qr_size, qr_size))
-                qr_position = (x_end - qr_size - 20, y_start + 230)  # Position near top-right of label
+                qr_position = (x_end - qr_size - 20, y_start + 190)  # Position near top-right of label
                 page.paste(qr_img, qr_position)
 
         # Append this page to the pages list
@@ -540,18 +632,36 @@ def reset_data():
     # Hide the open button
     open_button.pack_forget()
 
+qr_window = None  # Initialize the global variable
+
 def add_qr_code_window():
-    global qr_codes
+    global qr_window, qr_codes
 
     if not labels_data:
         messagebox.showerror("Error", "No order label to add QR code.")
         return
+
+    # Check if the QR Code window is already open
+    try:
+        if qr_window is not None and qr_window.winfo_exists():
+            # Bring the existing window to the front
+            qr_window.lift()
+            qr_window.focus_force()
+            return
+    except (AttributeError, TclError):
+        # 'qr_window' is None or has been destroyed; we can proceed to create it
+        pass
 
     # Create a new pop-up window
     qr_window = ctk.CTkToplevel(root)
     qr_window.title("Add QR Code")
     qr_window.geometry("400x300")
     qr_window.configure(bg="#3A3A3A")
+
+    # Ensure the window is on top and grabs focus
+    qr_window.attributes('-topmost', True)
+    qr_window.focus_force()
+    qr_window.grab_set()
 
     # Dropdown for order selection
     order_label = ctk.CTkLabel(
@@ -565,11 +675,18 @@ def add_qr_code_window():
     # Generate a list of unique order names, preserving order
     order_names = []
     seen_order_names = set()
+    display_name_to_order_name = {}  # Mapping from display name to actual order name
     for label in labels_data:
         order_name = label['order_name']
         if order_name not in seen_order_names:
             seen_order_names.add(order_name)
-            order_names.append(order_name)
+            # Check if the order has a QR code
+            if order_name in qr_codes:
+                display_name = f"{order_name} - has QR Code"
+            else:
+                display_name = order_name
+            order_names.append(display_name)
+            display_name_to_order_name[display_name] = order_name
 
     selected_order = ctk.StringVar(qr_window)
     dropdown = ctk.CTkOptionMenu(qr_window, variable=selected_order, values=order_names)
@@ -588,8 +705,11 @@ def add_qr_code_window():
     url_entry.pack(pady=10, padx=10, fill="x")
 
     # Add QR code button
-    def add_qr_code():
-        order_name = selected_order.get()
+    def add_qr_code(event=None):  # Accept an optional event parameter
+        global qr_window  # Declare 'qr_window' as global at the top
+
+        order_name_display = selected_order.get()
+        order_name = display_name_to_order_name.get(order_name_display)
         url = url_entry.get()
 
         if not order_name:
@@ -599,9 +719,24 @@ def add_qr_code_window():
             messagebox.showerror("Error", "Please enter a valid URL.")
             return
 
+        if order_name in qr_codes:
+            # Optionally prompt the user whether to overwrite the existing QR code
+            overwrite = messagebox.askyesno(
+                "Overwrite QR Code",
+                f"A QR Code already exists for {order_name}.\nDo you want to overwrite it?"
+            )
+            if not overwrite:
+                return
+
         qr_codes[order_name] = url
-        messagebox.showinfo("Success", f"QR Code added for order: {order_name}")
+
+        # After adding the QR code, we need to update the drop-down menu
+        # Since the window will be closed and reopened, it will reflect the updated labels next time
         qr_window.destroy()
+        # Release the grab and reset focus to the main window
+        root.focus_set()
+        # Set qr_window to None
+        qr_window = None
 
     add_button = ctk.CTkButton(
         qr_window,
@@ -611,6 +746,21 @@ def add_qr_code_window():
         hover_color="#266cc3"
     )
     add_button.pack(pady=20, padx=10, fill="x")
+
+    # Bind the Enter key to the add_qr_code function
+    qr_window.bind('<Return>', add_qr_code)
+
+    # Ensure that when the window is closed, the reference is removed
+    def on_close():
+        global qr_window  # Declare 'qr_window' as global at the top
+        qr_window.grab_release()
+        qr_window.destroy()
+        # Remove the reference to the window
+        qr_window = None
+        # Reset focus to the main window
+        root.focus_set()
+
+    qr_window.protocol("WM_DELETE_WINDOW", on_close)
 
 # GUI Setup
 root = ctk.CTk()
