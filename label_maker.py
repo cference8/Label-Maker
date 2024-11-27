@@ -436,7 +436,7 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
         messagebox.showerror("Error", f"Font file not found at {font_path}")
         return
 
-    font_large = ImageFont.truetype(font_path, 70)
+    font_large = ImageFont.truetype(font_path, 60)
     font_medium = ImageFont.truetype(font_path, 50)
     font_small = ImageFont.truetype(font_path, 40)  # Added a smaller font size for num_records
 
@@ -475,7 +475,7 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
             draw.rectangle([x_start, y_start, x_end, y_end], outline="black", width=3)
     
             # Calculate the position of the vertical line
-            x_line = x_start + (LABEL_WIDTH - 500) // 2  # Line in the middle of the label (adjusted with - 500)
+            x_line = x_start + (LABEL_WIDTH - 450) // 2  # Line in the middle of the label (adjusted with - 500)
 
             # Draw the vertical line
             draw.line([(x_line, y_start + 200), (x_line, y_end - 100)], fill="black", width=5)
@@ -496,7 +496,7 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
 
             # Draw the text onto the label
             draw.text((x_start + 20, y_start + 20), f"Order Name & Number:", fill='black', font=font_medium)
-            draw.text((x_start + 30, y_start + 100), order_name, fill=text_color, font=font_large)
+            draw.text((x_start + 30, y_start + 90), order_name, fill=text_color, font=font_large)
             draw.text((x_start + 20, y_start + 200), "Chip #:", fill='black', font=font_medium)
             draw.text((x_start + 30, y_start + 265), batch_chip, fill=text_color, font=font_large)
             if num_records is not None:
@@ -507,7 +507,7 @@ def generate_labels_pdf(labels_data, qr_codes, output_pdf="labels_with_qr.pdf"):
                 # If num_records is not available, adjust the positions of "Type:"
                 y_type = y_start + 320
             draw.text((x_start + 20, y_start + 360), "Type:", fill='black', font=font_medium)
-            draw.text((x_start + 200, y_start + 350), card_envelope, fill=text_color, font=font_large)
+            draw.text((x_start + 170, y_start + 360), card_envelope, fill=text_color, font=font_large)
 
             # Add QR code if it exists for the order
             if order_name in qr_codes:
@@ -649,13 +649,12 @@ def add_qr_code_window():
             qr_window.focus_force()
             return
     except (AttributeError, TclError):
-        # 'qr_window' is None or has been destroyed; we can proceed to create it
         pass
 
     # Create a new pop-up window
     qr_window = ctk.CTkToplevel(root)
     qr_window.title("Add QR Code")
-    qr_window.geometry("400x300")
+    qr_window.geometry("400x350")
     qr_window.configure(bg="#3A3A3A")
 
     # Ensure the window is on top and grabs focus
@@ -701,12 +700,39 @@ def add_qr_code_window():
     )
     url_label.pack(pady=10, padx=10)
 
-    url_entry = ctk.CTkEntry(qr_window, placeholder_text="Enter URL here...")
+    # Updated input box with placeholder text
+    url_entry = ctk.CTkEntry(qr_window, placeholder_text="Right click here to paste URL")
     url_entry.pack(pady=10, padx=10, fill="x")
 
+    # Bind the right-click event to paste from clipboard
+    def paste_clipboard(event):
+        try:
+            # Get the clipboard content
+            url = qr_window.clipboard_get()
+            # Clear the current content of the input box
+            url_entry.delete(0, 'end')
+            # Insert the clipboard content into the input box
+            url_entry.insert(0, url)
+        except:
+            # Handle exceptions (e.g., clipboard is empty or contains non-text data)
+            messagebox.showerror("Error", "Clipboard does not contain valid text.")
+
+    url_entry.bind("<Button-3>", paste_clipboard)  # For Windows and Linux
+    # url_entry.bind("<Button-2>", paste_clipboard)  # For macOS (optional)
+
+    # Clear button to clear the input box
+    clear_button = ctk.CTkButton(
+        qr_window,
+        text="Clear",
+        command=lambda: url_entry.delete(0, 'end'),
+        fg_color="#ff4d4d",  # Optional: set a color for the button
+        hover_color="#ff1a1a"  # Optional: set a hover color
+    )
+    clear_button.pack(pady=10, padx=10, fill="x")
+
     # Add QR code button
-    def add_qr_code(event=None):  # Accept an optional event parameter
-        global qr_window  # Declare 'qr_window' as global at the top
+    def add_qr_code(event=None):
+        global qr_window
 
         order_name_display = selected_order.get()
         order_name = display_name_to_order_name.get(order_name_display)
@@ -730,12 +756,9 @@ def add_qr_code_window():
 
         qr_codes[order_name] = url
 
-        # After adding the QR code, we need to update the drop-down menu
-        # Since the window will be closed and reopened, it will reflect the updated labels next time
+        # After adding the QR code, close the window and reset focus to the main window
         qr_window.destroy()
-        # Release the grab and reset focus to the main window
         root.focus_set()
-        # Set qr_window to None
         qr_window = None
 
     add_button = ctk.CTkButton(
@@ -752,12 +775,10 @@ def add_qr_code_window():
 
     # Ensure that when the window is closed, the reference is removed
     def on_close():
-        global qr_window  # Declare 'qr_window' as global at the top
+        global qr_window
         qr_window.grab_release()
         qr_window.destroy()
-        # Remove the reference to the window
         qr_window = None
-        # Reset focus to the main window
         root.focus_set()
 
     qr_window.protocol("WM_DELETE_WINDOW", on_close)
