@@ -2,7 +2,7 @@ import os
 import customtkinter as ctk
 from tkinter import TclError, filedialog, messagebox, colorchooser, Menu
 import logging
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, features
 import qrcode
 from io import BytesIO
 
@@ -801,7 +801,25 @@ root.bind("<Button-3>", show_context_menu)
 icon_path = resource_path('resources/scribe-icon.ico')
 root.iconbitmap(icon_path)
 
-logo_path = resource_path('resources/scribe-logo-final.png')
+logo_path = resource_path('resources/scribe-logo-final.webp')
+
+if not features.check('webp'):
+    messagebox.showerror("Error", "Your Pillow installation does not support WebP format. Please install Pillow with WebP support.")
+else:
+    try:
+        logo_image = Image.open(logo_path)
+        logo_image = logo_image.resize((258, 100), Image.Resampling.LANCZOS)
+    except Exception as e:
+        messagebox.showwarning("Image Load Warning", f"Failed to load the .webp logo image: {e}\nAttempting to load .png version.")
+        # Attempt to load the .png version
+        logo_path_png = resource_path('resources/scribe-logo-final.png')
+        try:
+            logo_image = Image.open(logo_path_png)
+            logo_image = logo_image.resize((258, 100), Image.Resampling.LANCZOS)
+        except Exception as e:
+            messagebox.showerror("Image Load Error", f"Failed to load the fallback .png logo image: {e}")
+            # Handle the error or exit
+
 
 from PIL import Image
 logo_image = Image.open(logo_path)
