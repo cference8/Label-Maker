@@ -654,13 +654,32 @@ def add_qr_code_window():
     # Create a new pop-up window
     qr_window = ctk.CTkToplevel(root)
     qr_window.title("Add QR Code")
-    qr_window.geometry("400x350")
+    qr_window.geometry("400x400")
     qr_window.configure(bg="#3A3A3A")
 
     # Ensure the window is on top and grabs focus
     qr_window.attributes('-topmost', True)
     qr_window.focus_force()
     qr_window.grab_set()
+
+    # Generate a list of unique order names and a mapping
+    display_name_to_order_name = {}
+
+    def build_order_list():
+        order_names = []
+        seen_order_names = set()
+        for label in labels_data:
+            order_name = label['order_name']
+            if order_name not in seen_order_names:
+                seen_order_names.add(order_name)
+                # Check if the order has a QR code
+                if order_name in qr_codes:
+                    display_name = f"{order_name} - has QR Code"
+                else:
+                    display_name = order_name
+                order_names.append(display_name)
+                display_name_to_order_name[display_name] = order_name
+        return order_names
 
     # Dropdown for order selection
     order_label = ctk.CTkLabel(
@@ -671,24 +690,25 @@ def add_qr_code_window():
     )
     order_label.pack(pady=10, padx=10)
 
-    # Generate a list of unique order names, preserving order
-    order_names = []
-    seen_order_names = set()
-    display_name_to_order_name = {}  # Mapping from display name to actual order name
-    for label in labels_data:
-        order_name = label['order_name']
-        if order_name not in seen_order_names:
-            seen_order_names.add(order_name)
-            # Check if the order has a QR code
-            if order_name in qr_codes:
-                display_name = f"{order_name} - has QR Code"
-            else:
-                display_name = order_name
-            order_names.append(display_name)
-            display_name_to_order_name[display_name] = order_name
-
+    # Initial dropdown construction
+    order_names = build_order_list()
     selected_order = ctk.StringVar(qr_window)
-    dropdown = ctk.CTkOptionMenu(qr_window, variable=selected_order, values=order_names)
+    selected_order.set(order_names[0] if order_names else "")
+
+    def on_order_select(order_name_display):
+        # Update the status label based on whether the selected order has a QR code
+        order_name = display_name_to_order_name.get(order_name_display, "")
+        if order_name in qr_codes:
+            status_label.configure(text=f"Status: {order_name} currently has a QR code.")
+        else:
+            status_label.configure(text=f"Status: {order_name} does not have a QR code.")
+
+    dropdown = ctk.CTkOptionMenu(
+        qr_window,
+        variable=selected_order,
+        values=order_names,
+        command=on_order_select
+    )
     dropdown.pack(pady=10, padx=10, fill="x")
 
     # Text field for QR code URL
@@ -714,39 +734,52 @@ def add_qr_code_window():
             # Insert the clipboard content into the input box
             url_entry.insert(0, url)
         except:
-            # Handle exceptions (e.g., clipboard is empty or contains non-text data)
+            # Handle exceptions (e.g., clipboard is empty or invalid)
             messagebox.showerror("Error", "Clipboard does not contain valid text.")
 
     url_entry.bind("<Button-3>", paste_clipboard)  # For Windows and Linux
-    # url_entry.bind("<Button-2>", paste_clipboard)  # For macOS (optional)
 
     # Clear button to clear the input box
     clear_button = ctk.CTkButton(
         qr_window,
         text="Clear",
         command=lambda: url_entry.delete(0, 'end'),
-        fg_color="#ff4d4d",  # Optional: set a color for the button
-        hover_color="#ff1a1a"  # Optional: set a hover color
+        fg_color="#ff4d4d",
+        hover_color="#ff1a1a"
     )
     clear_button.pack(pady=10, padx=10, fill="x")
 
+    # A function to refresh the dropdown after QR codes are added
+    def refresh_dropdown():
+        new_order_names = build_order_list()
+        dropdown.configure(values=new_order_names)
+        # If the previously selected order is still available, keep it selected
+        # Otherwise, select the first one if available
+        current_sel = selected_order.get()
+        if current_sel in new_order_names:
+            selected_order.set(current_sel)
+        elif new_order_names:
+            selected_order.set(new_order_names[0])
+        else:
+            selected_order.set("")
+        # Update status after refresh
+        on_order_select(selected_order.get())
+
     # Add QR code button
     def add_qr_code(event=None):
-        global qr_window
-
         order_name_display = selected_order.get()
         order_name = display_name_to_order_name.get(order_name_display)
         url = url_entry.get()
 
         if not order_name:
-            messagebox.showerror("Error", "Please select an order.")
+            status_label.configure(text="Error: Please select an order.")
             return
         if not url:
-            messagebox.showerror("Error", "Please enter a valid URL.")
+            status_label.configure(text="Error: Please enter a valid URL.")
             return
 
         if order_name in qr_codes:
-            # Optionally prompt the user whether to overwrite the existing QR code
+            # Prompt whether to overwrite
             overwrite = messagebox.askyesno(
                 "Overwrite QR Code",
                 f"A QR Code already exists for {order_name}.\nDo you want to overwrite it?"
@@ -755,11 +788,11 @@ def add_qr_code_window():
                 return
 
         qr_codes[order_name] = url
+        # Update status label to reflect success
+        status_label.configure(text=f"QR Code added/updated for {order_name}")
 
-        # After adding the QR code, close the window and reset focus to the main window
-        qr_window.destroy()
-        root.focus_set()
-        qr_window = None
+        # Refresh the dropdown to reflect that this order now has a QR code
+        refresh_dropdown()
 
     add_button = ctk.CTkButton(
         qr_window,
@@ -770,10 +803,41 @@ def add_qr_code_window():
     )
     add_button.pack(pady=20, padx=10, fill="x")
 
+    # Status label to provide user feedback
+    status_label = ctk.CTkLabel(
+        qr_window,
+        text="Status: ",
+        font=("Helvetica", 12),
+        text_color="black",
+        anchor="w"
+    )
+    status_label.pack(fill="x", padx=10, pady=10)
+
+    # If there's an initial selection, update the status label accordingly
+    if order_names:
+        on_order_select(order_names[0])
+
+    # Close button
+    def close_window():
+        global qr_window
+        qr_window.grab_release()
+        qr_window.destroy()
+        qr_window = None
+        root.focus_set()
+
+    close_button = ctk.CTkButton(
+        qr_window,
+        text="Close",
+        command=close_window,
+        fg_color="#ff4d4d",
+        hover_color="#ff1a1a"
+    )
+    close_button.pack(pady=5, padx=10)
+
     # Bind the Enter key to the add_qr_code function
     qr_window.bind('<Return>', add_qr_code)
 
-    # Ensure that when the window is closed, the reference is removed
+    # Ensure that when the window is closed via the window manager, the reference is removed
     def on_close():
         global qr_window
         qr_window.grab_release()
