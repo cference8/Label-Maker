@@ -867,6 +867,26 @@ root.bind("<Button-3>", show_context_menu)
 
 root.iconbitmap(resource_path('resources/scribe-icon.ico'))
 
+# Load the video icon image
+video_icon_path = resource_path('resources/video_icon.webp')  # Ensure the path to your video icon
+video_icon_image = ctk.CTkImage(light_image=Image.open(video_icon_path), size=(30, 30))
+
+# Function to open the webpage when the button is clicked
+import webbrowser
+def open_video_page():
+    webbrowser.open("https://www.loom.com/share/35d9e373cdf5412d89e9d7f68ba0647c?sid=169d3286-3261-4917-b01b-9ffd6587446b")  # Replace with your actual webpage URL
+
+# Add the video icon button at the position where the blue box is
+video_button = ctk.CTkButton(root, 
+                             image=video_icon_image, 
+                             text="", 
+                             width=40, height=40, 
+                             command=open_video_page, 
+                             fg_color="transparent", 
+                             hover_color="#f0f0f0")
+video_button.place(x=640, y=10)  # Adjust x, y coordinates to position where the blue box is
+
+
 from PIL import Image
 logo_image = Image.open(resource_path('resources/scribe-logo-final.webp'))
 logo_image = logo_image.resize((258, 100), Image.Resampling.LANCZOS)
