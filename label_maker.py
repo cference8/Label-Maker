@@ -702,6 +702,9 @@ def add_qr_code_window():
             status_label.configure(text=f"Status: {order_name} currently has a QR code.")
         else:
             status_label.configure(text=f"Status: {order_name} does not have a QR code.")
+        
+        # Clear the input box whenever a new item is selected in the dropdown
+        url_entry.delete(0, 'end')
 
     dropdown = ctk.CTkOptionMenu(
         qr_window,
