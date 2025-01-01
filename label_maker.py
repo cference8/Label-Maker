@@ -850,6 +850,26 @@ def add_qr_code_window():
 
     qr_window.protocol("WM_DELETE_WINDOW", on_close)
 
+import ctypes
+from sys import platform
+
+def get_scaling_factor():
+    try:
+        # Ensure DPI awareness is set (requires Windows 8.1 or later)
+        if platform == "win32":
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Enable per-monitor DPI awareness
+
+        # Get the DPI of the primary monitor
+        hdc = ctypes.windll.user32.GetDC(0)
+        dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)  # 88 = LOGPIXELSX (DPI horizontally)
+        ctypes.windll.user32.ReleaseDC(0, hdc)
+
+        # Calculate scaling factor
+        return dpi / 96.0  # Default DPI is 96 (100%)
+    except Exception as e:
+        print(f"Error getting scaling factor: {e}")
+        return 1.0  # Default to 1.0 if detection fails
+
 # GUI Setup
 root = ctk.CTk()
 root.title("Label Maker")
@@ -912,7 +932,19 @@ scrollable_frame.bind(
     lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
 )
 
-canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=450)
+# Get scaling factor
+scaling_factor = get_scaling_factor()
+
+# Determine width based on scaling factor
+if scaling_factor >= 1.5:  # 150% scaling
+    canvas_width = 540
+elif scaling_factor >= 1.25:  # 125% scaling
+    canvas_width = 450
+else:  # 100% scaling or default
+    canvas_width = 380
+
+# Apply the calculated width to the canvas
+canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=canvas_width)
 canvas.configure(yscrollcommand=scrollbar.set)
 
 canvas.bind_all("<MouseWheel>", on_mousewheel)
