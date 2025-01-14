@@ -550,7 +550,7 @@ def create_pdf():
             return
 
         # Default save path (ensure it doesn't end with a backslash)
-        save_directory = r"G:\Shared drives\Scribe Workspace\Scribe Master Folder\Batch Labels"
+        save_directory = r"G:\Shared drives\Scribe Workspace\Scribe Master Folder\Scribe Label Maker\Batch Labels"
 
         # Ensure the directory exists
         os.makedirs(save_directory, exist_ok=True)
