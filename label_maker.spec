@@ -11,6 +11,7 @@ a = Analysis(
         ('resources/scribe-icon.ico', 'resources'),
         ('resources/scribe-logo-final.png', 'resources'),
         ('resources/scribe-logo-final.webp', 'resources'),
+        ('resources/envelope.png', 'resources'),
         ('.env', '.')  # Add the .env file to the root of the output directory
     ],
 
