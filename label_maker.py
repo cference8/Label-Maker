@@ -869,6 +869,168 @@ def get_scaling_factor():
     except Exception as e:
         print(f"Error getting scaling factor: {e}")
         return 1.0  # Default to 1.0 if detection fails
+    
+# Load the envelope icon image
+envelope_icon_path = resource_path('resources/envelope.png')  # Ensure the path to your envelope icon
+envelope_icon_image = ctk.CTkImage(light_image=Image.open(envelope_icon_path), size=(30, 30))
+
+# Function to open the support ticket window
+def open_support_ticket():
+    def send_email_callback():
+        handle_send_email(name_entry, email_entry, message_text, ticket_window)
+
+    ticket_window = ctk.CTkToplevel(root)
+    ticket_window.title("Support Ticket")
+    ticket_window.geometry("400x400")
+    ticket_window.grab_set()
+
+    # Input fields
+    ctk.CTkLabel(ticket_window, text="Name:", anchor="w").pack(pady=(20, 5), fill="x", padx=20)
+    name_entry = ctk.CTkEntry(ticket_window)
+    name_entry.pack(fill="x", padx=20, pady=5)
+
+    ctk.CTkLabel(ticket_window, text="Email:", anchor="w").pack(pady=5, fill="x", padx=20)
+    email_entry = ctk.CTkEntry(ticket_window)
+    email_entry.pack(fill="x", padx=20, pady=5)
+
+    ctk.CTkLabel(ticket_window, text="Message:", anchor="w").pack(pady=5, fill="x", padx=20)
+    message_text = ctk.CTkTextbox(ticket_window, height=10)
+    message_text.pack(fill="both", padx=20, pady=5, expand=True)
+
+
+    # Submit button
+    submit_button = ctk.CTkButton(ticket_window, text="Send", command=send_email_callback)
+    submit_button.pack(pady=20)
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def send_email(subject, body_plain, body_html, to_email, from_email, password):
+    """
+    Send an email via an SMTP server with plain text and HTML formatting.
+
+    :param subject: The email subject
+    :param body_plain: The plain text version of the email body
+    :param body_html: The HTML version of the email body
+    :param to_email: Recipient's email address
+    :param from_email: Sender's email address
+    :param password: Sender's email account password
+    """
+    try:
+        # Create the email with both plain text and HTML content
+        message = MIMEMultipart("alternative")
+        message["From"] = from_email
+        message["To"] = to_email
+        message["Subject"] = subject
+
+        # Attach plain text and HTML versions of the email
+        message.attach(MIMEText(body_plain, "plain"))
+        message.attach(MIMEText(body_html, "html"))
+
+        # Connect to the SMTP server and send the email
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(from_email, password)
+            server.sendmail(from_email, to_email, message.as_string())
+
+        print("Email sent successfully!")
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+def handle_send_email(name_entry, email_entry, message_text, ticket_window):
+    """
+    Collect input from the GUI and send the email.
+    """
+    name = name_entry.get()
+    email = email_entry.get()
+    message = message_text.get("1.0", "end").strip()
+
+    if not name or not email or not message:
+        messagebox.showerror("Error", "All fields are required.")
+        return
+
+    # Email details
+    subject = f"Support Ticket from {name}"
+    # Plain text version
+    body_plain = f"""
+    Name: {name}
+    Email: {email}
+
+    Message:
+    {message}
+    """
+
+    # HTML version
+    body_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+            }}
+            .container {{
+                width: 50%;
+                margin: 0 auto;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                background-color: #f9f9f9;
+            }}
+            .header {{
+                font-size: 18px;
+                font-weight: bold;
+                color: #0056b3;
+                margin-bottom: 10px;
+            }}
+            .content {{
+                margin: 15px 0;
+            }}
+            .footer {{
+                font-size: 12px;
+                color: #555;
+                margin-top: 20px;
+                text-align: center;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">Support Ticket</div>
+            <div class="content">
+                <p><strong>Name:</strong> {name}</p>
+                <p><strong>Email:</strong> {email}</p>
+                <p><strong>Message:</strong></p>
+                <p>{message}</p>
+            </div>
+            <div class="footer">
+                <p>This email was generated by the Label Maker Application.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    to_email = "chrislavigne.mn@gmail.com"
+    from_email = os.getenv("FROM_EMAIL")  # Load from .env
+    password = os.getenv("EMAIL_PASSWORD")  # Load from .env
+
+    # Send the email
+    if send_email(subject, body_plain, body_html, to_email, from_email, password):
+        messagebox.showinfo("Success", "Support ticket sent successfully!")
+        ticket_window.destroy()
+    else:
+        messagebox.showerror("Error", "Failed to send email. Please try again.")
+
 
 # GUI Setup
 root = ctk.CTk()
@@ -890,6 +1052,16 @@ root.iconbitmap(resource_path('resources/scribe-icon.ico'))
 # Load the video icon image
 video_icon_path = resource_path('resources/video_icon.webp')  # Ensure the path to your video icon
 video_icon_image = ctk.CTkImage(light_image=Image.open(video_icon_path), size=(30, 30))
+
+# Add the envelope icon button next to the video button
+envelope_button = ctk.CTkButton(root, 
+                                 image=envelope_icon_image, 
+                                 text="", 
+                                 width=40, height=40, 
+                                 command=open_support_ticket, 
+                                 fg_color="transparent", 
+                                 hover_color="#f0f0f0")
+envelope_button.place(x=590, y=10)  # Adjust x, y coordinates relative to the video button
 
 # Function to open the webpage when the button is clicked
 import webbrowser
